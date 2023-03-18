@@ -14,8 +14,6 @@ namespace ReadyUp
         public NetworkConnection serverConnection;
         public Socket serverSocket => serverConnection.socket;
 
-        Dictionary<int, NetworkMessageDelegate> handlers = new Dictionary<int, NetworkMessageDelegate>();
-
         ushort connectID = 1;
 
         public NetworkServer(int port = 4117)
@@ -26,7 +24,6 @@ namespace ReadyUp
 
             Console.WriteLine("[Server] Setting up Socket...");
             serverConnection = new NetworkConnection(new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp), "localhost", 4117, 0);
-            serverConnection.SetHandler(handlers);
 
             RegisterDefaultHandlers();
 
@@ -97,35 +94,17 @@ namespace ReadyUp
             clientConnections.Remove(senderID);
         }
 
-        public void RegisterHandler(int messageType, NetworkMessageDelegate handler)
-        {
-            if (handlers.ContainsKey(messageType))
-            {
-                Console.WriteLine("[Server] NetworkServer.RegisterHandler replacing " + messageType);
-            }
-            handlers[messageType] = handler;
-        }
-        public void RegisterHandler<T>(Action<T, ushort> handler, bool requiredAuthentication = true) where T : struct, INetworkMessage
-        {
-            int messageType = MessagePacker.GetID<T>();
-            if(handlers.ContainsKey(messageType))
-            {
-                Console.WriteLine("[Server] NetworkServer.RegisterHandler replacing " + messageType);
-            }
-            handlers[messageType] = MessagePacker.MessageHandler<T>(handler, requiredAuthentication);
-        }
+        #region Register/Unregister Handlers
 
-        public void UnregisterHandler(int messageType)
-        {
-            handlers.Remove(messageType);
-        }
-        public void UnregisterHandler<T>() where T : INetworkMessage
-        {
-            int messageType = MessagePacker.GetID<T>();
-            handlers.Remove(messageType);
-        }
+        public void RegisterHandler(int messageType, NetworkMessageDelegate handler) => serverConnection.RegisterHandler(messageType, handler);
+        public void RegisterHandler<T>(Action<T, ushort> handler, bool requiredAuthentication = true) where T : struct, INetworkMessage => serverConnection.RegisterHandler<T>(handler, requiredAuthentication);
 
-        public void ClearHandlers() => handlers.Clear();
+        public void UnregisterHandler(int messageType) => serverConnection.UnregisterHandler(messageType);
+        public void UnregisterHandler<T>() where T : INetworkMessage => serverConnection.UnregisterHandler<T>();
+
+        public void ClearHandlers() => serverConnection.ClearHandlers();
+
+        #endregion
 
         public void Send<T>(T message, ushort identifier) where T : INetworkMessage
         {

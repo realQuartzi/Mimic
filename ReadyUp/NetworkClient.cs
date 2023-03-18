@@ -13,13 +13,10 @@ namespace ReadyUp
 
         Socket clientSocket => clientConnection.socket;
 
-        Dictionary<int, NetworkMessageDelegate> handlers = new Dictionary<int, NetworkMessageDelegate>();
-
         public NetworkClient(string address, int port = 4117)
         {
             Console.WriteLine("[Client] Starting NetworkClient...");
             clientConnection = new NetworkConnection(new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp), address, port, 0);
-            clientConnection.SetHandler(handlers);
 
             RegisterDefaultHandlers();
             Connect();
@@ -82,41 +79,20 @@ namespace ReadyUp
 
         void OnConnectSuccessReceived(ConnectSuccessMessage message, ushort senderID)
         {
+            Console.WriteLine("[Client] Connect Success Message Received!");
             clientConnection.identifier = message.identity;
             validConnection = true;
         }
 
         #region Register/Unregister Handlers
 
-        public void RegisterHandler(int messageType, NetworkMessageDelegate handler)
-        {
-            if (handlers.ContainsKey(messageType))
-            {
-                Console.WriteLine("[Client] NetworkClient.RegisterHandler replacing " + messageType);
-            }
-            handlers[messageType] = handler;
-        }
-        public void RegisterHandler<T>(Action<T, ushort> handler, bool requiredAuthentication = true) where T : struct, INetworkMessage
-        {
-            int messageType = MessagePacker.GetID<T>();
-            if(handlers.ContainsKey(messageType))
-            {
-                Console.WriteLine("[Client] NetworkClient.RegisterHandler replacing " + messageType);
-            }
-            handlers[messageType] = MessagePacker.MessageHandler<T>(handler, requiredAuthentication);
-        }
+        public void RegisterHandler(int messageType, NetworkMessageDelegate handler) => clientConnection.RegisterHandler(messageType, handler);
+        public void RegisterHandler<T>(Action<T, ushort> handler, bool requiredAuthentication = true) where T : struct, INetworkMessage => clientConnection.RegisterHandler<T>(handler, requiredAuthentication);
 
-        public void UnregisterHandler(int messageType)
-        {
-            handlers.Remove(messageType);
-        }
-        public void UnregisterHandler<T>() where T : INetworkMessage
-        {
-            int messageType = MessagePacker.GetID<T>();
-            handlers.Remove(messageType);
-        }
+        public void UnregisterHandler(int messageType) => clientConnection.UnregisterHandler(messageType);
+        public void UnregisterHandler<T>() where T : INetworkMessage => clientConnection.UnregisterHandler<T>();
 
-        public void ClearHandlers() => handlers.Clear();
+        public void ClearHandlers() => clientConnection.ClearHandlers();
 
         #endregion
 

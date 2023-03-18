@@ -1,5 +1,4 @@
 ﻿using System.Net.Sockets;
-using System.Security.Cryptography.X509Certificates;
 
 namespace ReadyUp
 {
@@ -13,7 +12,7 @@ namespace ReadyUp
         public string address;
         public int port;
 
-        Dictionary<int, NetworkMessageDelegate> messageHandlers;
+        Dictionary<int, NetworkMessageDelegate> messageHandlers = new Dictionary<int, NetworkMessageDelegate>();
         public long lastMessageTime;
 
 
@@ -39,7 +38,38 @@ namespace ReadyUp
             authorized = true;
         }
 
-        public void SetHandler(Dictionary<int, NetworkMessageDelegate> handlers) => messageHandlers = handlers;
+        #region Register/Unregister Handlers
+
+        public void RegisterHandler(int messageType, NetworkMessageDelegate handler)
+        {
+            if (messageHandlers.ContainsKey(messageType))
+            {
+                Console.WriteLine("NetworkConnection.RegisterHandler replacing " + messageType);
+            }
+            messageHandlers[messageType] = handler;
+        }
+        public void RegisterHandler<T>(Action<T, ushort> handler, bool requiredAuthentication = true) where T : struct, INetworkMessage
+        {
+            int messageType = MessagePacker.GetID<T>();
+            if (messageHandlers.ContainsKey(messageType))
+            {
+                Console.WriteLine("NetworkConnection.RegisterHandler replacing " + messageType);
+            }
+            messageHandlers[messageType] = MessagePacker.MessageHandler<T>(handler, requiredAuthentication);
+        }
+        public void UnregisterHandler(int messageType)
+        {
+            messageHandlers.Remove(messageType);
+        }
+        public void UnregisterHandler<T>() where T : INetworkMessage
+        {
+            int messageType = MessagePacker.GetID<T>();
+            messageHandlers.Remove(messageType);
+        }
+
+        public void ClearHandlers() => messageHandlers.Clear();
+
+        #endregion
 
         internal bool InvokeHandler(int messageType, ushort senderIdentifier, NetworkReader reader)
         {
