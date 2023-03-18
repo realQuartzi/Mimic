@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Net;
+﻿using System.Net;
 using System.Net.Sockets;
 
 namespace ReadyUp
@@ -7,18 +6,15 @@ namespace ReadyUp
     public class NetworkServer
     {
         static byte[] globalBuffer = new byte[1024];
-        static int multiListenCount = 1;
-        static int listenPort;
+        int multiListenCount = 1;
+        int listenPort;
 
-        // TODO Store Socket as NetworkConnection for easier controll somehow
         Dictionary<ushort, NetworkConnection> clientConnections = new Dictionary<ushort, NetworkConnection>();
 
-        public static NetworkConnection serverConnection;
-        public static Socket serverSocket => serverConnection.socket;
+        public NetworkConnection serverConnection;
+        public Socket serverSocket => serverConnection.socket;
 
-        internal static Dictionary<int, NetworkMessageDelegate> handlers = new Dictionary<int, NetworkMessageDelegate>();
-
-        //public event EventHandler<byte[]> OnReceivedData;
+        Dictionary<int, NetworkMessageDelegate> handlers = new Dictionary<int, NetworkMessageDelegate>();
 
         ushort connectID = 1;
 
@@ -61,7 +57,6 @@ namespace ReadyUp
             ConnectSuccessMessage message = new ConnectSuccessMessage()
             {
                 identity = newClientConnection.identifier,
-                //random = "Random String"
             };
 
             Send(message, newClientConnection.identifier);
@@ -70,7 +65,7 @@ namespace ReadyUp
             serverSocket.BeginAccept(new AsyncCallback(AcceptConnectionCallback), null);
         }
 
-        static void ReceiveCallback(IAsyncResult result)
+        void ReceiveCallback(IAsyncResult result)
         {
             Socket socket = (Socket)result.AsyncState;
             int received = socket.EndReceive(result);
@@ -79,9 +74,6 @@ namespace ReadyUp
             Array.Copy(globalBuffer, dataBuffer, received);
 
             serverConnection.OnReceivedData(dataBuffer);
-
-            // TO send response to the specific socket
-            //socket.BeginSend(data, 0, data.Length, SocketFlags.None, new AsyncCallback(SendCallback));
         }
 
         void RegisterDefaultHandlers()
@@ -134,7 +126,6 @@ namespace ReadyUp
         }
 
         public void ClearHandlers() => handlers.Clear();
-
 
         public void Send<T>(T message, ushort identifier) where T : INetworkMessage
         {

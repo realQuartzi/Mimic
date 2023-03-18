@@ -13,7 +13,7 @@ namespace ReadyUp
 
         Socket clientSocket => clientConnection.socket;
 
-        internal static Dictionary<int, NetworkMessageDelegate> handlers = new Dictionary<int, NetworkMessageDelegate>();
+        Dictionary<int, NetworkMessageDelegate> handlers = new Dictionary<int, NetworkMessageDelegate>();
 
         public NetworkClient(string address, int port = 4117)
         {
