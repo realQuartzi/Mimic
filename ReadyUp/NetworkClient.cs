@@ -6,7 +6,7 @@ namespace ReadyUp
 {
     public class NetworkClient
     {
-        static byte[] bufferSize = new byte[1024];
+        static byte[] globalBuffer = new byte[1024];
 
         public NetworkConnection clientConnection;
         public bool validConnection;
@@ -40,7 +40,7 @@ namespace ReadyUp
 
             Console.WriteLine("[Client] NetworkClient Connected to Server!");
 
-            ReceiveLoop();
+            clientSocket.BeginReceive(globalBuffer, 0, globalBuffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), clientSocket);
         }
 
         public void Disconnect()
@@ -55,19 +55,15 @@ namespace ReadyUp
             validConnection = false;
         }
 
-        void ReceiveLoop()
+        void ReceiveCallback(IAsyncResult result)
         {
-            Console.WriteLine("[Client] Beginning Receive Loop!");
+            Socket socket = (Socket)result.AsyncState;
+            int received = socket.EndReceive(result);
 
-            while (clientSocket.Connected)
-            {
-                byte[] receiveBuffer = new byte[bufferSize.Length];
-                int received = clientSocket.Receive(receiveBuffer);
-                byte[] dataBuffer = new byte[received];
-                Array.Copy(receiveBuffer, dataBuffer, received);
+            byte[] dataBuffer = new byte[received];
+            Array.Copy(globalBuffer, dataBuffer, received);
 
-                clientConnection.OnReceivedData(dataBuffer);
-            }
+            clientConnection.OnReceivedData(dataBuffer);
         }
 
         void RegisterDefaultHandlers()
