@@ -4,17 +4,17 @@
     {
         public static string GetName<T>() where T : INetworkMessage
         {
-            return typeof(T).FullName;
+            return typeof(T).Name;
         }
 
         public static int GetID<T>() where T : INetworkMessage
         {
-            return typeof(T).FullName.GetStableHashCode() & 0xFFFF;
+            return typeof(T).Name.GetStableHashCode() & 0xFFFF;
         }
 
         public static int GetID(Type type)
         {
-            return type.FullName.GetStableHashCode() & 0xFFFF;
+            return type.Name.GetStableHashCode() & 0xFFFF;
         }
 
         public static byte[] PackMessage(int messageType, NetworkMessage message)

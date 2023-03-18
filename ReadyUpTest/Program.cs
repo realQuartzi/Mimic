@@ -9,7 +9,7 @@ namespace ReadySteadyTest
 
         static void Main(string[] args)
         {
-            server = new NetworkServer();
+            server = new NetworkServer(4117);
 
             client = new NetworkClient("localhost", 4117);
 
