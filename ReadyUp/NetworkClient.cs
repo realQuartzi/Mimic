@@ -1,7 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 
-
 namespace ReadyUp
 {
     public class NetworkClient
@@ -12,17 +11,19 @@ namespace ReadyUp
         public bool validConnection;
 
         Socket clientSocket => clientConnection.socket;
+        EndPoint endPoint;
 
         public NetworkClient(string address, int port = 4117)
         {
             Console.WriteLine("[Client] Starting NetworkClient...");
             clientConnection = new NetworkConnection(new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp), address, port, 0);
+            endPoint = clientConnection.ipEndPoint;
 
             RegisterDefaultHandlers();
-            Connect();
+            Connect(endPoint);
         }
 
-        public void Connect()
+        public void Connect(EndPoint endPoint)
         {
             int attempts = 0;
             while (!clientSocket.Connected)
@@ -30,7 +31,7 @@ namespace ReadyUp
                 try
                 {
                     attempts++;
-                    clientSocket.Connect(IPAddress.Loopback, clientConnection.port);
+                    clientSocket.Connect(endPoint);
                 }
                 catch (SocketException)
                 {
@@ -39,8 +40,8 @@ namespace ReadyUp
             }
 
             Console.WriteLine("[Client] NetworkClient Connected to Server!");
-
-            clientSocket.BeginReceive(globalBuffer, 0, globalBuffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), clientSocket);
+            Console.WriteLine("[Client] NetworkClient Listening to: " + clientConnection.address);
+            clientSocket.BeginReceiveFrom(globalBuffer, 0, globalBuffer.Length, SocketFlags.None, ref endPoint, new AsyncCallback(ReceiveCallback), clientSocket);
         }
 
         public void Disconnect()
@@ -57,13 +58,22 @@ namespace ReadyUp
 
         void ReceiveCallback(IAsyncResult result)
         {
-            Socket socket = (Socket)result.AsyncState;
-            int received = socket.EndReceive(result);
+            try
+            {
+                Socket socket = (Socket)result.AsyncState;
+                Console.WriteLine("Result: " + result);
+                int received = socket.EndReceiveFrom(result, ref endPoint);
 
-            byte[] dataBuffer = new byte[received];
-            Array.Copy(globalBuffer, dataBuffer, received);
+                byte[] dataBuffer = new byte[received];
+                Array.Copy(globalBuffer, dataBuffer, received);
 
-            clientConnection.OnReceivedData(dataBuffer);
+                clientConnection.OnReceivedData(dataBuffer);
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine("[Client] Receive Exception: " + e);
+            }
+
         }
 
         void RegisterDefaultHandlers()

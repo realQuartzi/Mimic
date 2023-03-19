@@ -7,7 +7,6 @@ namespace ReadyUp
     {
         static byte[] globalBuffer = new byte[1024];
         int multiListenCount = 1;
-        int listenPort;
 
         Dictionary<ushort, NetworkConnection> clientConnections = new Dictionary<ushort, NetworkConnection>();
 
@@ -20,7 +19,6 @@ namespace ReadyUp
         {
             Console.WriteLine("[Server] Starting NetworkServer...");
             Console.WriteLine("[Server] Set Listening port to: " + port);
-            listenPort = port;
 
             Console.WriteLine("[Server] Setting up Socket...");
             serverConnection = new NetworkConnection(new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp), "localhost", 4117, 0);
@@ -33,7 +31,7 @@ namespace ReadyUp
         void SetupServer()
         {
             // Open Listen to all Connections
-            serverSocket.Bind(new IPEndPoint(IPAddress.Any, listenPort));
+            serverSocket.Bind(new IPEndPoint(IPAddress.Any, serverConnection.port));
             serverSocket.Listen(multiListenCount); // Only allow one Client accept at a time
 
             // Start Accepting new Clients
@@ -45,7 +43,7 @@ namespace ReadyUp
             Socket socket = serverSocket.EndAccept(result);
 
             Console.WriteLine("[Server] Current ConnectID: " + connectID);
-            NetworkConnection newClientConnection = new NetworkConnection(socket, "localhost", listenPort, connectID);
+            NetworkConnection newClientConnection = new NetworkConnection(socket, socket.RemoteEndPoint as IPEndPoint, connectID);
             clientConnections.Add(connectID, newClientConnection);
             connectID++;
 

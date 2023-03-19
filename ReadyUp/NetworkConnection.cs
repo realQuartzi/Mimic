@@ -1,4 +1,5 @@
-﻿using System.Net.Sockets;
+﻿using System.Net;
+using System.Net.Sockets;
 
 namespace ReadyUp
 {
@@ -9,8 +10,9 @@ namespace ReadyUp
         public ushort identifier;
         public bool authorized;
 
-        public string address;
-        public int port;
+        public IPEndPoint ipEndPoint;
+        public IPAddress address => ipEndPoint.Address;
+        public int port => ipEndPoint.Port;
 
         Dictionary<int, NetworkMessageDelegate> messageHandlers = new Dictionary<int, NetworkMessageDelegate>();
         public long lastMessageTime;
@@ -28,8 +30,32 @@ namespace ReadyUp
             this.identifier = identifier;
             this.authorized = false;
 
-            this.address = networkAddress;
-            this.port = port;
+            byte[] address = new byte[4] {127,0,0,1};
+            if(networkAddress != null && networkAddress.Contains('.'))
+            {
+                IPAddress tempAddress = IPAddress.Parse(networkAddress);
+                address = tempAddress.GetAddressBytes();
+            }
+
+            this.ipEndPoint = new IPEndPoint(new IPAddress(address), port);
+        }
+
+        public NetworkConnection(Socket socket, byte[] networkAddress, int port, ushort identifier = 0)
+        {
+            this.socket = socket;
+            this.identifier = identifier;
+            this.authorized = false;
+
+            this.ipEndPoint = new IPEndPoint(new IPAddress(networkAddress), port);
+        }
+
+        public NetworkConnection(Socket socket, IPEndPoint ipEndPoint, ushort identifier = 0)
+        {
+            this.socket = socket;
+            this.identifier = identifier;
+            this.authorized = false;
+
+            this.ipEndPoint = ipEndPoint;
         }
 
         public void AuthorizeConnection(ushort identifier)
