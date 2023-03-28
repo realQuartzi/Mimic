@@ -3,16 +3,16 @@ namespace ReadyUp
 {
     public struct ConnectSuccessMessage : INetworkMessage
     {
-        public ushort identity;
+        public Guid identity;
 
         public void Serialize(NetworkWriter writer)
         {
-            writer.WriteUShort(identity);
+            writer.WriteGUID(identity);
         }
 
         public void Deserialize(NetworkReader reader)
         {
-            identity = reader.ReadUShort();
+            identity = reader.ReadGUID();
         }
     }
 }

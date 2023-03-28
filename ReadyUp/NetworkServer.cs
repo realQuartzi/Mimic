@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
+using System.Timers;
 
 namespace ReadyUp
 {
@@ -8,12 +9,15 @@ namespace ReadyUp
         static byte[] globalBuffer = new byte[1024];
         int multiListenCount = 1;
 
-        Dictionary<ushort, NetworkConnection> clientConnections = new Dictionary<ushort, NetworkConnection>();
+        public static Dictionary<Guid, NetworkConnection> clientConnections = new Dictionary<Guid, NetworkConnection>();
 
         public NetworkConnection serverConnection;
         public Socket serverSocket => serverConnection.socket;
 
-        ushort connectID = 1;
+        // Default timeout Time for a client is 30 seconds (30,000 milliseconds)
+        public int clientTimeOut = 30000;
+        // Default time for ping to be requested to all clients (20 seconds)
+        public int pingRequestTime = 20000;
 
         public NetworkServer(int port = 4117)
         {
@@ -21,7 +25,8 @@ namespace ReadyUp
             Console.WriteLine("[Server] Set Listening port to: " + port);
 
             Console.WriteLine("[Server] Setting up Socket...");
-            serverConnection = new NetworkConnection(new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp), "localhost", 4117, 0);
+            serverConnection = new NetworkConnection(new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp), "localhost", 4117, Guid.Empty);
+            serverConnection.isServer = true;
 
             RegisterDefaultHandlers();
 
@@ -36,24 +41,35 @@ namespace ReadyUp
 
             // Start Accepting new Clients
             serverSocket.BeginAccept(new AsyncCallback(AcceptConnectionCallback), null);
+
+            System.Timers.Timer pingTimer = new System.Timers.Timer();
+            pingTimer.Interval = pingRequestTime;
+            pingTimer.Elapsed += SendGlobalPing;
+            pingTimer.Start();
+
+            System.Timers.Timer timeOutTimer = new System.Timers.Timer();
+            timeOutTimer.Interval = clientTimeOut;
+            timeOutTimer.Elapsed += CheckClientTimeOut;
+            timeOutTimer.Start();
         }
 
         void AcceptConnectionCallback(IAsyncResult result)
         {
             Socket socket = serverSocket.EndAccept(result);
 
-            Console.WriteLine("[Server] Current ConnectID: " + connectID);
-            NetworkConnection newClientConnection = new NetworkConnection(socket, socket.RemoteEndPoint as IPEndPoint, connectID);
-            clientConnections.Add(connectID, newClientConnection);
-            connectID++;
+            Console.WriteLine("[Server] New Client Connected!");
+            Guid newGUID = Guid.NewGuid();
+            EndPoint endPoint = socket.RemoteEndPoint;
+            NetworkConnection newClientConnection = new NetworkConnection(socket, endPoint as IPEndPoint, newGUID);
+            clientConnections.Add(newGUID, newClientConnection);
 
-            socket.BeginReceive(globalBuffer, 0, globalBuffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), socket);
+            socket.BeginReceiveFrom(globalBuffer, 0, globalBuffer.Length, SocketFlags.None,ref endPoint, new AsyncCallback(ReceiveCallback), socket);
 
+            // Send Identification before adding to connected List
             ConnectSuccessMessage message = new ConnectSuccessMessage()
             {
                 identity = newClientConnection.identifier,
             };
-
             Send(message, newClientConnection.identifier);
 
             // Start Accepting new Clients Again
@@ -63,12 +79,17 @@ namespace ReadyUp
         void ReceiveCallback(IAsyncResult result)
         {
             Socket socket = (Socket)result.AsyncState;
-            int received = socket.EndReceive(result);
+            EndPoint endPoint = socket.RemoteEndPoint;
+            int received = socket.EndReceiveFrom(result, ref endPoint);
 
             byte[] dataBuffer = new byte[received];
             Array.Copy(globalBuffer, dataBuffer, received);
 
-            serverConnection.OnReceivedData(dataBuffer);
+            if(dataBuffer.Length > 0 )
+            {
+                serverConnection.OnReceivedData(dataBuffer);
+                socket.BeginReceiveFrom(globalBuffer, 0, globalBuffer.Length, SocketFlags.None, ref endPoint, new AsyncCallback(ReceiveCallback), socket);
+            }
         }
 
         void RegisterDefaultHandlers()
@@ -76,26 +97,21 @@ namespace ReadyUp
             Console.WriteLine("[Server] Registering Default Handlers");
 
             RegisterHandler<DisconnectMessage>(DisconnectReceived, false);
-            RegisterHandler<PingMessage>(PingReceived, false);
+            RegisterHandler<PongMessage>(PongReceived, false);
         }
 
-        void PingReceived(PingMessage message, ushort senderID)
-        {
-            Console.WriteLine("[Server] Ping Received from Client");
+        void PongReceived(PongMessage message, Guid senderID) {}
 
-            Send(new PongMessage(), senderID);
-        }
-
-        void DisconnectReceived(DisconnectMessage message, ushort senderID)
+        void DisconnectReceived(DisconnectMessage message, Guid senderID)
         {
-            Console.WriteLine("[Server] Removing Client: " + senderID);
+            Console.WriteLine("[Server] Removing Disconnected Client: " + senderID);
             clientConnections.Remove(senderID);
         }
 
         #region Register/Unregister Handlers
 
         public void RegisterHandler(int messageType, NetworkMessageDelegate handler) => serverConnection.RegisterHandler(messageType, handler);
-        public void RegisterHandler<T>(Action<T, ushort> handler, bool requiredAuthentication = true) where T : struct, INetworkMessage => serverConnection.RegisterHandler<T>(handler, requiredAuthentication);
+        public void RegisterHandler<T>(Action<T, Guid> handler, bool requiredAuthentication = true) where T : struct, INetworkMessage => serverConnection.RegisterHandler<T>(handler, requiredAuthentication);
 
         public void UnregisterHandler(int messageType) => serverConnection.UnregisterHandler(messageType);
         public void UnregisterHandler<T>() where T : INetworkMessage => serverConnection.UnregisterHandler<T>();
@@ -104,7 +120,7 @@ namespace ReadyUp
 
         #endregion
 
-        public void Send<T>(T message, ushort identifier) where T : INetworkMessage
+        public void Send<T>(T message, Guid identifier) where T : INetworkMessage
         {
             NetworkConnection conn = null;
             if(clientConnections.TryGetValue(identifier, out conn))
@@ -119,8 +135,9 @@ namespace ReadyUp
                 return;
 
             byte[] toSend = MessagePacker.Pack(message);
-            foreach (KeyValuePair<ushort, NetworkConnection> conn in clientConnections)
+            foreach (KeyValuePair<Guid, NetworkConnection> conn in clientConnections)
             {
+                Console.WriteLine("Sending to: " + conn.Key.ToString() + " | " + conn.Value.ipEndPoint.ToString());
                 conn.Value.socket.BeginSend(toSend, 0, toSend.Length, SocketFlags.None, new AsyncCallback(SendCallback), conn.Value.socket);
             }
         }
@@ -129,6 +146,33 @@ namespace ReadyUp
         {
             Socket socket = (Socket)result.AsyncState;
             socket.EndSend(result);
+        }
+
+        void SendGlobalPing(object? sender, ElapsedEventArgs e)
+        {
+            SendToAll(new PingMessage());
+        }
+        void CheckClientTimeOut(object? sender, ElapsedEventArgs e)
+        {
+            if (clientConnections.Count <= 0)
+                return;
+
+            foreach (KeyValuePair<Guid, NetworkConnection> conn in clientConnections)
+            {
+                // Compare ticks with Milliseconds (Multiply Milliseconds by 10,000 to get ticks compare)
+                if (conn.Value.lastMessageTime + (clientTimeOut * 10000) <= DateTime.UtcNow.Ticks)
+                {
+                    DisconnectConnection(conn.Key);
+                }
+            }
+        }
+        void DisconnectConnection(Guid connectionID)
+        {
+            Send(new DisconnectMessage(), connectionID);
+            if(clientConnections.ContainsKey(connectionID))
+            {
+                clientConnections.Remove(connectionID);
+            }
         }
     }
 }

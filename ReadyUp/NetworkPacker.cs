@@ -23,7 +23,7 @@
             try
             {
                 writer.WriteInt16((short)messageType);
-                writer.WriteUInt16(0);
+                writer.WriteGUID(Guid.Empty);
 
                 message.Serialize(writer);
 
@@ -34,13 +34,13 @@
                 NetworkWriterPool.Recycle(writer);
             }
         }
-        public static byte[] PackMessage(int messageType, NetworkMessage message, ushort senderID)
+        public static byte[] PackMessage(int messageType, NetworkMessage message, Guid senderID)
         {
             NetworkWriter writer = NetworkWriterPool.GetWriter();
             try
             {
                 writer.WriteInt16((short)messageType);
-                writer.WriteUInt16(senderID);
+                writer.WriteGUID(senderID);
 
                 message.Serialize(writer);
 
@@ -56,7 +56,7 @@
         {
             int messageType = GetID(typeof(T).IsValueType ? typeof(T) : message.GetType());
             writer.WriteUInt16((ushort)messageType);
-            writer.WriteUInt16(0);
+            writer.WriteGUID(Guid.Empty);
 
             message.Serialize(writer);
         }
@@ -77,7 +77,7 @@
         {
             int messageType = GetID(typeof(T).IsValueType ? typeof(T) : message.GetType());
             writer.WriteUInt16((ushort)messageType);
-            writer.WriteUInt16(sender.identifier);
+            writer.WriteGUID(sender.identifier);
 
             message.Serialize(writer);
         }
@@ -106,30 +106,30 @@
                 throw new FormatException("Invalid Message, could not unpack " + typeof(T).FullName);
             }
 
-            ushort sendIdentifier = reader.ReadUInt16();
+            Guid sendIdentifier = reader.ReadGUID();
 
             T message = new T();
             message.Deserialize(reader);
             return message;
         }
 
-        public static bool UnpackMessage(NetworkReader reader, out int messageType, out ushort sendIdentifier)
+        public static bool UnpackMessage(NetworkReader reader, out int messageType, out Guid sendIdentifier)
         {
             try
             {
                 messageType = reader.ReadUInt16();
-                sendIdentifier = reader.ReadUInt16();
+                sendIdentifier = reader.ReadGUID();
                 return true;
             }
             catch(System.IO.EndOfStreamException)
             {
                 messageType = 0;
-                sendIdentifier = 0;
+                sendIdentifier = Guid.Empty;
                 return false;
             }
         }
 
-        public static NetworkMessageDelegate MessageHandler<T>(Action<T, ushort> handler, bool requireAuthentication) where T : INetworkMessage, new() => networkMessage =>
+        public static NetworkMessageDelegate MessageHandler<T>(Action<T, Guid> handler, bool requireAuthentication) where T : INetworkMessage, new() => networkMessage =>
         {
             T message = default;
             try
