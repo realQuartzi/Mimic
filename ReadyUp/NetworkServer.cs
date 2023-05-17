@@ -32,12 +32,12 @@ namespace ReadyUp
             // Start Accepting new Clients
             serverSocket.BeginAccept(new AsyncCallback(AcceptConnectionCallback), null);
 
-            System.Timers.Timer pingTimer = new System.Timers.Timer();
+            Timer pingTimer = new Timer();
             pingTimer.Interval = pingRequestTime;
             pingTimer.Elapsed += SendGlobalPing;
             pingTimer.Start();
 
-            System.Timers.Timer timeOutTimer = new System.Timers.Timer();
+            Timer timeOutTimer = new Timer();
             timeOutTimer.Interval = clientTimeOut;
             timeOutTimer.Elapsed += CheckClientTimeOut;
             timeOutTimer.Start();
