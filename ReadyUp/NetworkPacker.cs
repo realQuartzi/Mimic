@@ -1,4 +1,6 @@
-﻿namespace ReadyUp
+﻿using System;
+
+namespace ReadyUp
 {
     public static class MessagePacker
     {

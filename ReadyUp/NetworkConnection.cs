@@ -1,4 +1,6 @@
-﻿using System.Net;
+﻿using System;
+using System.Collections.Generic;
+using System.Net;
 using System.Net.Sockets;
 
 namespace ReadyUp
@@ -140,10 +142,10 @@ namespace ReadyUp
                 {
                     if (isServer)
                     {
-                        if (NetworkServer.clientConnections.ContainsKey(sendIdentifier))
+                        if (BaseServer.clientConnections.ContainsKey(sendIdentifier))
                         {
                             NetworkConnection conn = null;
-                            if (NetworkServer.clientConnections.TryGetValue(sendIdentifier, out conn))
+                            if (BaseServer.clientConnections.TryGetValue(sendIdentifier, out conn))
                             {
                                 conn.lastMessageTime = DateTime.UtcNow.Ticks;
                             }

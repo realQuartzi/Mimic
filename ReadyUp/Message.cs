@@ -1,4 +1,5 @@
-﻿
+﻿using System;
+
 namespace ReadyUp
 {
     public struct Message

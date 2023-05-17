@@ -1,4 +1,6 @@
 ﻿
+using System;
+
 namespace ReadyUp
 {
     public struct ConnectSuccessMessage : INetworkMessage

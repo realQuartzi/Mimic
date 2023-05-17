@@ -1,23 +1,23 @@
-﻿
+﻿using System;
+
 namespace ReadyUp
 {
     public static class NetworkDiagnostic
     {
-        public readonly struct MessageInfo
+        public struct MessageInfo
         {
             public readonly INetworkMessage message;
             public readonly int bytes;
 
-            internal MessageInfo(INetworkMessage message, int bytes)
+            public MessageInfo(INetworkMessage message, int bytes)
             {
                 this.message = message;
                 this.bytes = bytes;
             }
         }
 
-
         public static event Action<MessageInfo> OutMessageEvent;
-        internal static void OnSend<T>(T message, int bytes) where T : INetworkMessage
+        public static void OnSend<T>(T message, int bytes) where T : INetworkMessage
         {
             if(OutMessageEvent != null)
             {
@@ -27,7 +27,7 @@ namespace ReadyUp
         }
 
         public static event Action<MessageInfo> InMessageEvent;
-        internal static void OnReceive<T>(T message, int bytes) where T : INetworkMessage
+        public static void OnReceive<T>(T message, int bytes) where T : INetworkMessage
         {
             if(InMessageEvent != null)
             {
