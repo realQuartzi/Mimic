@@ -28,12 +28,15 @@ namespace ReadyUp
                 }
                 catch (SocketException)
                 {
+#if DEBUG
                     Console.WriteLine("[Client] Connection attempts: " + attempts.ToString());
+#endif
                 }
             }
 
             Console.WriteLine("[Client] NetworkClient Connected to Server!");
             Console.WriteLine("[Client] NetworkClient Listening to: " + clientConnection.address);
+
             clientSocket.BeginReceiveFrom(globalBuffer, 0, globalBuffer.Length, SocketFlags.None, ref endPoint, new AsyncCallback(ReceiveCallback), clientSocket);
         }
 
@@ -55,7 +58,7 @@ namespace ReadyUp
                 }
                 else
                 {
-                    Console.WriteLine("[Client] Error: databuffer is 0 size");
+                    Console.WriteLine("[Client] Error: Received databuffer is 0 size");
                 }
             }
             catch (Exception e)
@@ -67,7 +70,9 @@ namespace ReadyUp
 
         void RegisterDefaultHandlers()
         {
+#if DEBUG
             Console.WriteLine("[Client] Registering Default Handlers");
+#endif
 
             RegisterHandler<ConnectSuccessMessage>(OnConnectSuccessReceived, false);
             RegisterHandler<PingMessage>(OnPingReceived, false);
@@ -90,7 +95,9 @@ namespace ReadyUp
 
         void OnDisconnectionReceived(DisconnectMessage message, Guid senderID)
         {
+#if DEBUG
             Console.WriteLine("[Client] Server Disconnected the Client!");
+#endif
 
             clientSocket.Disconnect(false);
             clientConnection.identifier = Guid.Empty;
@@ -123,12 +130,20 @@ namespace ReadyUp
             if (!clientSocket.Connected)
                 return;
 
+#if DEBUG
             Console.WriteLine("[Client] Disconnecting Client");
+#endif
+
             Send(new DisconnectMessage());
 
             clientSocket.Disconnect(false);
             clientConnection.identifier = Guid.Empty;
             validConnection = false;
+        }
+
+        ~NetworkClient()
+        {
+            Disconnect();
         }
     }
 }

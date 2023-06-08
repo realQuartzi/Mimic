@@ -14,7 +14,10 @@ namespace ReadyUp
             Console.WriteLine("[Server] Starting NetworkServer...");
             Console.WriteLine("[Server] Set Listening port to: " + port);
 
+#if DEBUG
             Console.WriteLine("[Server] Setting up Socket...");
+#endif
+
             serverConnection = new NetworkConnection(new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp), "localhost", 4117, Guid.Empty);
             serverConnection.isServer = true;
 
@@ -46,8 +49,9 @@ namespace ReadyUp
         void AcceptConnectionCallback(IAsyncResult result)
         {
             Socket socket = serverSocket.EndAccept(result);
-
+#if DEBUG
             Console.WriteLine("[Server] New Client Connected!");
+#endif
             Guid newGUID = Guid.NewGuid();
             EndPoint endPoint = socket.RemoteEndPoint;
             NetworkConnection newClientConnection = new NetworkConnection(socket, endPoint as IPEndPoint, newGUID);
@@ -68,33 +72,54 @@ namespace ReadyUp
 
         void ReceiveCallback(IAsyncResult result)
         {
-            Socket socket = (Socket)result.AsyncState;
-            EndPoint endPoint = socket.RemoteEndPoint;
-            int received = socket.EndReceiveFrom(result, ref endPoint);
-
-            byte[] dataBuffer = new byte[received];
-            Array.Copy(globalBuffer, dataBuffer, received);
-
-            if(dataBuffer.Length > 0 )
+            try
             {
-                serverConnection.OnReceivedData(dataBuffer);
-                socket.BeginReceiveFrom(globalBuffer, 0, globalBuffer.Length, SocketFlags.None, ref endPoint, new AsyncCallback(ReceiveCallback), socket);
+                Socket socket = (Socket)result.AsyncState;
+                EndPoint endPoint = socket.RemoteEndPoint;
+                int received = socket.EndReceiveFrom(result, ref endPoint);
+
+                byte[] dataBuffer = new byte[received];
+                Array.Copy(globalBuffer, dataBuffer, received);
+
+                if (dataBuffer.Length > 0)
+                {
+                    serverConnection.OnReceivedData(dataBuffer);
+                    socket.BeginReceiveFrom(globalBuffer, 0, globalBuffer.Length, SocketFlags.None, ref endPoint, new AsyncCallback(ReceiveCallback), socket);
+                }
+                else
+                {
+                    Console.WriteLine("[Server] Error: Received databuffer is 0 size");
+                }
             }
+            catch (Exception e)
+            {
+                Console.WriteLine("[Server] Receive Exception: " + e);
+            }
+
         }
 
         void RegisterDefaultHandlers()
         {
+#if DEBUG
             Console.WriteLine("[Server] Registering Default Handlers");
+#endif
 
             RegisterHandler<DisconnectMessage>(DisconnectReceived, false);
             RegisterHandler<PongMessage>(PongReceived, false);
         }
 
-        void PongReceived(PongMessage message, Guid senderID) {}
+        void PongReceived(PongMessage message, Guid senderID)
+        {
+#if DEBUG
+            Console.WriteLine("[Server] Pong Recieved: " + senderID);
+#endif
+        }
 
         void DisconnectReceived(DisconnectMessage message, Guid senderID)
         {
+#if DEBUG
             Console.WriteLine("[Server] Removing Disconnected Client: " + senderID);
+#endif
             clientConnections.Remove(senderID);
         }
 
@@ -127,7 +152,9 @@ namespace ReadyUp
             byte[] toSend = MessagePacker.Pack(message);
             foreach (KeyValuePair<Guid, NetworkConnection> conn in clientConnections)
             {
+#if DEBUG
                 Console.WriteLine("Sending to: " + conn.Key.ToString() + " | " + conn.Value.ipEndPoint.ToString());
+#endif
                 conn.Value.socket.BeginSend(toSend, 0, toSend.Length, SocketFlags.None, new AsyncCallback(SendCallback), conn.Value.socket);
             }
         }
@@ -142,6 +169,7 @@ namespace ReadyUp
         {
             SendToAll(new PingMessage());
         }
+
         void CheckClientTimeOut(object sender, ElapsedEventArgs e)
         {
             if (clientConnections.Count <= 0)
@@ -152,13 +180,17 @@ namespace ReadyUp
                 // Compare ticks with Milliseconds (Multiply Milliseconds by 10,000 to get ticks compare)
                 if (conn.Value.lastMessageTime + (clientTimeOut * 10000) <= DateTime.UtcNow.Ticks)
                 {
+                    Console.WriteLine($"Connection ID: {conn.Key} Disconnecting... Timeout");
                     DisconnectConnection(conn.Key);
                 }
             }
         }
+
         void DisconnectConnection(Guid connectionID)
         {
+            Console.WriteLine($"Connection ID: {connectionID} Disconnected");
             Send(new DisconnectMessage(), connectionID);
+
             if(clientConnections.ContainsKey(connectionID))
             {
                 clientConnections.Remove(connectionID);

@@ -7,18 +7,14 @@ namespace ReadySteadyTest
     class Program
     {
         static NetworkServer server;
-        static NetworkClient client;
 
         static void Main(string[] args)
         {
             server = new NetworkServer(4117);
             server.RegisterHandler<SendMessage>(OnMessageReceived);
 
-            //client = new NetworkClient("127.0.0.1", 4117);
-
             Console.ReadLine();
         }
-
 
         static void OnMessageReceived(SendMessage message, Guid senderID)
         {

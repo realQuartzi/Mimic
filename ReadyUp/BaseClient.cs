@@ -12,5 +12,12 @@ namespace ReadyUp
 
         protected Socket clientSocket => clientConnection.socket;
         protected EndPoint endPoint;
+
+        public bool isConnected => !((clientSocket.Poll(1000, SelectMode.SelectRead) && (clientSocket.Available == 0)) || !clientSocket.Connected);
+
+        ~BaseClient()
+        {
+            clientSocket.Close();
+        }
     }
 }
