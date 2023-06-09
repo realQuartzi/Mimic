@@ -79,7 +79,7 @@ namespace ReadyUp
 
         public static T Unpack<T>(byte[] data) where T : INetworkMessage, new()
         {
-            NetworkReader reader = new NetworkReader(data);
+            NetworkReader reader = NetworkReaderPool.GetReader(data);
 
             int messageType = GetID<T>();
 
@@ -91,6 +91,8 @@ namespace ReadyUp
 
             T message = new T();
             message.Deserialize(reader);
+
+            NetworkReaderPool.Recycle(reader);
             return message;
         }
 

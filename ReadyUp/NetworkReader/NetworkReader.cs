@@ -1,12 +1,11 @@
 ﻿using System;
 using System.IO;
-using System.Text;
 
 namespace ReadyUp
 {
     public class NetworkReader
     {
-        ArraySegment<byte> buffer;
+        internal ArraySegment<byte> buffer;
 
         public int Position;
         public int Length => buffer.Count;
@@ -14,12 +13,24 @@ namespace ReadyUp
 
         public NetworkReader(byte[] bytes)
         {
-            buffer = new ArraySegment<byte>(bytes);
+            buffer = new ArraySegment<byte>(bytes, 0, bytes.Length);
         }
 
         public NetworkReader(ArraySegment<byte> segment)
         {
             buffer = segment;
+        }
+
+        public void SetBuffer(ArraySegment<byte> segment)
+        {
+            buffer = segment;
+            Position = 0;
+        }
+
+        public void SetBuffer(byte[] bytes)
+        {
+            buffer = new ArraySegment<byte>(bytes, 0, bytes.Length);
+            Position = 0;
         }
 
         internal unsafe T ReadBlittable<T>() where T : unmanaged

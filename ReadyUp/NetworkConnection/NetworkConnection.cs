@@ -133,7 +133,7 @@ namespace ReadyUp
         {
             int messageType = MessagePacker.GetID(message.GetType());
             byte[] data = MessagePacker.Pack(message);
-            return InvokeHandler(messageType, senderIdentifier, new NetworkReader(data));
+            return InvokeHandler(messageType, senderIdentifier, NetworkReaderPool.GetReader(data));
         }
 
         #endregion
@@ -145,7 +145,7 @@ namespace ReadyUp
         /// <param name="sendIdentifier">IPEndPoint of the sender of the data</param>
         public void OnReceivedData(byte[] buffer, IPEndPoint sendIdentifier = null)
         {
-            NetworkReader reader = new NetworkReader(buffer);
+            NetworkReader reader = NetworkReaderPool.GetReader(buffer);
 
             if (MessagePacker.UnpackMessage(reader, out int messageType))
             {
@@ -169,6 +169,8 @@ namespace ReadyUp
                 Console.WriteLine("Invalid Message Received!");
                 // Invalid message header.
             }
+
+            NetworkReaderPool.Recycle(reader);
         }
 
         public void Disconnect()
