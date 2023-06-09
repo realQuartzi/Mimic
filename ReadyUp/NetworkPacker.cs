@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net;
 
 namespace ReadyUp
 {
@@ -25,24 +26,6 @@ namespace ReadyUp
             try
             {
                 writer.WriteInt16((short)messageType);
-                writer.WriteGUID(Guid.Empty);
-
-                message.Serialize(writer);
-
-                return writer.ToArray();
-            }
-            finally
-            {
-                NetworkWriterPool.Recycle(writer);
-            }
-        }
-        public static byte[] PackMessage(int messageType, NetworkMessage message, Guid senderID)
-        {
-            NetworkWriter writer = NetworkWriterPool.GetWriter();
-            try
-            {
-                writer.WriteInt16((short)messageType);
-                writer.WriteGUID(senderID);
 
                 message.Serialize(writer);
 
@@ -58,7 +41,6 @@ namespace ReadyUp
         {
             int messageType = GetID(typeof(T).IsValueType ? typeof(T) : message.GetType());
             writer.WriteUInt16((ushort)messageType);
-            writer.WriteGUID(Guid.Empty);
 
             message.Serialize(writer);
         }
@@ -79,7 +61,6 @@ namespace ReadyUp
         {
             int messageType = GetID(typeof(T).IsValueType ? typeof(T) : message.GetType());
             writer.WriteUInt16((ushort)messageType);
-            writer.WriteGUID(sender.identifier);
 
             message.Serialize(writer);
         }
@@ -108,30 +89,26 @@ namespace ReadyUp
                 throw new FormatException("Invalid Message, could not unpack " + typeof(T).FullName);
             }
 
-            Guid sendIdentifier = reader.ReadGUID();
-
             T message = new T();
             message.Deserialize(reader);
             return message;
         }
 
-        public static bool UnpackMessage(NetworkReader reader, out int messageType, out Guid sendIdentifier)
+        public static bool UnpackMessage(NetworkReader reader, out int messageType)
         {
             try
             {
                 messageType = reader.ReadUInt16();
-                sendIdentifier = reader.ReadGUID();
                 return true;
             }
             catch(System.IO.EndOfStreamException)
             {
                 messageType = 0;
-                sendIdentifier = Guid.Empty;
                 return false;
             }
         }
 
-        public static NetworkMessageDelegate MessageHandler<T>(Action<T, Guid> handler, bool requireAuthentication) where T : INetworkMessage, new() => networkMessage =>
+        public static NetworkMessageDelegate MessageHandler<T>(Action<T, IPEndPoint> handler, bool requireAuthentication) where T : INetworkMessage, new() => networkMessage =>
         {
             T message = default;
             try
@@ -157,8 +134,6 @@ namespace ReadyUp
             {
                 Console.WriteLine("Message Handler was not setup properly: " + e.GetType().Name + " | " + e.Message);
             }
-
-
         };
     }
 

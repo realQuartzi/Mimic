@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading.Tasks;
 
 namespace ReadyUp
 {
@@ -9,35 +10,46 @@ namespace ReadyUp
         public NetworkClient(string address, int port = 4117)
         {
             Console.WriteLine("[Client] Starting NetworkClient...");
-            clientConnection = new NetworkConnection(new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp), address, port, Guid.Empty);
+
+            clientConnection = new NetworkConnectionToServer(new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp), address, port);
             endPoint = clientConnection.ipEndPoint;
 
             RegisterDefaultHandlers();
             Connect(endPoint);
         }
 
-        public void Connect(EndPoint endPoint)
+        public async void Connect(EndPoint endPoint, int maxAttempts = 10, int retryDelay = 1000)
         {
             int attempts = 0;
-            while (!clientSocket.Connected)
+
+            while (attempts < maxAttempts)
             {
                 try
                 {
                     attempts++;
-                    clientSocket.Connect(endPoint);
+                    await clientSocket.ConnectAsync(endPoint);
+                    break;
                 }
                 catch (SocketException)
                 {
 #if DEBUG
-                    Console.WriteLine("[Client] Connection attempts: " + attempts.ToString());
+                    Console.WriteLine("DEBUG: [Client] Connection attempts: " + attempts.ToString());
 #endif
+                    await Task.Delay(retryDelay);
                 }
             }
 
-            Console.WriteLine("[Client] NetworkClient Connected to Server!");
-            Console.WriteLine("[Client] NetworkClient Listening to: " + clientConnection.address);
+            if(clientSocket.Connected)
+            {
+                Console.WriteLine("[Client] NetworkClient connected to Server!");
+                Console.WriteLine("[Client] NetworkClient listening to: " + clientConnection.address);
 
-            clientSocket.BeginReceiveFrom(globalBuffer, 0, globalBuffer.Length, SocketFlags.None, ref endPoint, new AsyncCallback(ReceiveCallback), clientSocket);
+                clientSocket.BeginReceiveFrom(globalBuffer, 0, globalBuffer.Length, SocketFlags.None, ref endPoint, new AsyncCallback(ReceiveCallback), clientSocket);
+            }
+            else
+            {
+                Console.WriteLine("[Client] Failed to connect to the server.");
+            }
         }
 
         void ReceiveCallback(IAsyncResult result)
@@ -54,11 +66,12 @@ namespace ReadyUp
                 {
                     clientConnection.OnReceivedData(dataBuffer);
                     clientSocket.BeginReceiveFrom(globalBuffer, 0, globalBuffer.Length, SocketFlags.None, ref endPoint, new AsyncCallback(ReceiveCallback), clientSocket);
-
                 }
                 else
                 {
-                    Console.WriteLine("[Client] Error: Received databuffer is 0 size");
+                    Console.WriteLine("[Client] Error: Received databuffer with a size of 0 | Client is disconnecting!");
+
+                    clientConnection.Disconnect();
                 }
             }
             catch (Exception e)
@@ -71,7 +84,7 @@ namespace ReadyUp
         void RegisterDefaultHandlers()
         {
 #if DEBUG
-            Console.WriteLine("[Client] Registering Default Handlers");
+            Console.WriteLine("DEBUG: [Client] Registering Default Handlers");
 #endif
 
             RegisterHandler<ConnectSuccessMessage>(OnConnectSuccessReceived, false);
@@ -79,42 +92,28 @@ namespace ReadyUp
             RegisterHandler<DisconnectMessage>(OnDisconnectionReceived, false);
         }
 
-        void OnConnectSuccessReceived(ConnectSuccessMessage message, Guid senderID)
+        void OnConnectSuccessReceived(ConnectSuccessMessage message)
         {
             if (validConnection)
                 return;
 
-            clientConnection.identifier = message.identity;
             validConnection = true;
         }
 
-        void OnPingReceived(PingMessage message, Guid senderID)
+        void OnPingReceived(PingMessage message)
         {
             Send(new PongMessage());
         }
 
-        void OnDisconnectionReceived(DisconnectMessage message, Guid senderID)
+        void OnDisconnectionReceived(DisconnectMessage message)
         {
 #if DEBUG
-            Console.WriteLine("[Client] Server Disconnected the Client!");
+            Console.WriteLine("DEBUG: [Client] Server Disconnected the Client!");
 #endif
 
-            clientSocket.Disconnect(false);
-            clientConnection.identifier = Guid.Empty;
+            clientConnection.Disconnect();
             validConnection = false;
         }
-
-        #region Register/Unregister Handlers
-
-        public void RegisterHandler(int messageType, NetworkMessageDelegate handler) => clientConnection.RegisterHandler(messageType, handler);
-        public void RegisterHandler<T>(Action<T, Guid> handler, bool requiredAuthentication = true) where T : struct, INetworkMessage => clientConnection.RegisterHandler<T>(handler, requiredAuthentication);
-
-        public void UnregisterHandler(int messageType) => clientConnection.UnregisterHandler(messageType);
-        public void UnregisterHandler<T>() where T : INetworkMessage => clientConnection.UnregisterHandler<T>();
-
-        public void ClearHandlers() => clientConnection.ClearHandlers();
-
-        #endregion
 
         public void Send<T>(T message) where T : INetworkMessage
         {
@@ -122,6 +121,10 @@ namespace ReadyUp
             {
                 byte[] toSend = MessagePacker.Pack(message, clientConnection);
                 clientSocket.Send(toSend);
+            }
+            else
+            {
+                Console.WriteLine("[Client] Tried to send a message without being connected to a server! Check if the server is available if this happens");
             }
         }
 
@@ -131,13 +134,12 @@ namespace ReadyUp
                 return;
 
 #if DEBUG
-            Console.WriteLine("[Client] Disconnecting Client");
+            Console.WriteLine("DEBUG: [Client] Disconnecting Client");
 #endif
 
             Send(new DisconnectMessage());
 
-            clientSocket.Disconnect(false);
-            clientConnection.identifier = Guid.Empty;
+            clientConnection.Disconnect();
             validConnection = false;
         }
 
@@ -145,5 +147,21 @@ namespace ReadyUp
         {
             Disconnect();
         }
+
+        #region Register/Unregister Handlers [Getters]
+
+        public void RegisterHandler(int messageType, NetworkMessageDelegate handler) => clientConnection.RegisterHandler(messageType, handler);
+        public void RegisterHandler<T>(Action<T> handler, bool requiredAuthentication = true) where T : struct, INetworkMessage
+        {
+            Action<T, IPEndPoint> internalHaner = (message, endPoint) => handler(message);
+            clientConnection.RegisterHandler<T>(internalHaner, requiredAuthentication);
+        }
+
+        public void UnregisterHandler(int messageType) => clientConnection.UnregisterHandler(messageType);
+        public void UnregisterHandler<T>() where T : INetworkMessage => clientConnection.UnregisterHandler<T>();
+
+        public void ClearHandlers() => clientConnection.ClearHandlers();
+
+        #endregion
     }
 }

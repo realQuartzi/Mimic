@@ -1,20 +1,10 @@
 ﻿
-using System;
-
 namespace ReadyUp
 {
     public struct ConnectSuccessMessage : INetworkMessage
     {
-        public Guid identity;
+        public void Deserialize(NetworkReader reader) { }
 
-        public void Serialize(NetworkWriter writer)
-        {
-            writer.WriteGUID(identity);
-        }
-
-        public void Deserialize(NetworkReader reader)
-        {
-            identity = reader.ReadGUID();
-        }
+        public void Serialize(NetworkWriter writer) { }
     }
 }

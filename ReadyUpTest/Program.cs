@@ -1,6 +1,7 @@
 ﻿using ReadyUp;
 using ReadyUpTest;
 using System;
+using System.Net;
 
 namespace ReadySteadyTest
 {
@@ -16,12 +17,12 @@ namespace ReadySteadyTest
             Console.ReadLine();
         }
 
-        static void OnMessageReceived(SendMessage message, Guid senderID)
+        static void OnMessageReceived(SendMessage message, IPEndPoint endPoint)
         {
             Console.WriteLine("[Client] Message Recieved: " + message.message);
 
             SendMessage sendMessage = new SendMessage("Hello Client! :D");
-            server.Send(sendMessage, senderID);
+            server.Send(sendMessage, endPoint);
         }
     }
 }

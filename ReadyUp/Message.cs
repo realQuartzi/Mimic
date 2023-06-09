@@ -1,11 +1,11 @@
-﻿using System;
+﻿using System.Net;
 
 namespace ReadyUp
 {
     public struct Message
     {
         public int messageType;
-        public Guid senderIdentifier;
+        public IPEndPoint senderIdentifier;
         public NetworkReader reader;
 
         public T ReadMessage<T>() where T : INetworkMessage, new()

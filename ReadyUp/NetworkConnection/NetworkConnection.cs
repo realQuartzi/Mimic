@@ -5,11 +5,10 @@ using System.Net.Sockets;
 
 namespace ReadyUp
 {
-    public class NetworkConnection
+    public partial class NetworkConnection
     {
         // Useful network Data
         public Socket socket;
-        public Guid identifier;
         public bool authorized;
         public long lastMessageTime;
 
@@ -21,17 +20,14 @@ namespace ReadyUp
 
         public bool isServer = false;
 
-
         /// <summary>
         /// Used to record NetworkConnections to return messages to.
         /// </summary>
         /// <param name="socket"></param>
         /// <param name="port"></param>
-        /// <param name="identifier"></param>
-        public NetworkConnection(Socket socket, string networkAddress, int port, Guid identifier)
+        public NetworkConnection(Socket socket, string networkAddress, int port)
         {
             this.socket = socket;
-            this.identifier = identifier;
             this.authorized = false;
 
             byte[] address = new byte[4] {127,0,0,1};
@@ -46,10 +42,9 @@ namespace ReadyUp
             this.lastMessageTime = DateTime.UtcNow.Ticks;
         }
 
-        public NetworkConnection(Socket socket, byte[] networkAddress, int port, Guid identifier)
+        public NetworkConnection(Socket socket, byte[] networkAddress, int port)
         {
             this.socket = socket;
-            this.identifier = identifier;
             this.authorized = false;
 
             this.ipEndPoint = new IPEndPoint(new IPAddress(networkAddress), port);
@@ -57,10 +52,9 @@ namespace ReadyUp
             this.lastMessageTime = DateTime.UtcNow.Ticks;
         }
 
-        public NetworkConnection(Socket socket, IPEndPoint ipEndPoint, Guid identifier)
+        public NetworkConnection(Socket socket, IPEndPoint ipEndPoint)
         {
             this.socket = socket;
-            this.identifier = identifier;
             this.authorized = false;
 
             this.ipEndPoint = ipEndPoint;
@@ -68,11 +62,7 @@ namespace ReadyUp
             this.lastMessageTime = DateTime.UtcNow.Ticks;
         }
 
-        public void AuthorizeConnection(Guid identifier)
-        {
-            this.identifier = identifier;
-            authorized = true;
-        }
+        public void AuthorizeConnection() => authorized = true;
 
         #region Register/Unregister Handlers
 
@@ -84,7 +74,7 @@ namespace ReadyUp
             }
             messageHandlers[messageType] = handler;
         }
-        public void RegisterHandler<T>(Action<T, Guid> handler, bool requiredAuthentication = true) where T : struct, INetworkMessage
+        public void RegisterHandler<T>(Action<T, IPEndPoint> handler, bool requiredAuthentication = true) where T : struct, INetworkMessage
         {
             int messageType = MessagePacker.GetID<T>();
             if (messageHandlers.ContainsKey(messageType))
@@ -93,21 +83,35 @@ namespace ReadyUp
             }
             messageHandlers[messageType] = MessagePacker.MessageHandler<T>(handler, requiredAuthentication);
         }
+
+        /// <summary>
+        /// Unregister the specified Handler
+        /// </summary>
+        /// <param name="messageType"></param>
         public void UnregisterHandler(int messageType)
         {
             messageHandlers.Remove(messageType);
         }
+        /// <summary>
+        /// Unregister the specified Handler
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
         public void UnregisterHandler<T>() where T : INetworkMessage
         {
             int messageType = MessagePacker.GetID<T>();
             messageHandlers.Remove(messageType);
         }
 
+        /// <summary>
+        /// Unregister all Handlers
+        /// </summary>
         public void ClearHandlers() => messageHandlers.Clear();
 
         #endregion
 
-        internal bool InvokeHandler(int messageType, Guid senderIdentifier, NetworkReader reader)
+        #region Invoke Handler
+
+        internal bool InvokeHandler(int messageType, IPEndPoint senderIdentifier, NetworkReader reader)
         {
             if (messageHandlers.TryGetValue(messageType, out NetworkMessageDelegate messageDelegate))
             {
@@ -125,18 +129,25 @@ namespace ReadyUp
             // Unkown Message ID
             return false;
         }
-        public bool InvokeHandler<T>(T message, Guid senderIdentifier) where T : INetworkMessage
+        public bool InvokeHandler<T>(T message, IPEndPoint senderIdentifier) where T : INetworkMessage
         {
             int messageType = MessagePacker.GetID(message.GetType());
             byte[] data = MessagePacker.Pack(message);
             return InvokeHandler(messageType, senderIdentifier, new NetworkReader(data));
         }
 
-        public void OnReceivedData(byte[] buffer)
+        #endregion
+
+        /// <summary>
+        /// Read and Unpack the received data.
+        /// </summary>
+        /// <param name="buffer">Received byte[] data</param>
+        /// <param name="sendIdentifier">IPEndPoint of the sender of the data</param>
+        public void OnReceivedData(byte[] buffer, IPEndPoint sendIdentifier = null)
         {
             NetworkReader reader = new NetworkReader(buffer);
 
-            if (MessagePacker.UnpackMessage(reader, out int messageType, out Guid sendIdentifier))
+            if (MessagePacker.UnpackMessage(reader, out int messageType))
             {
                 if (InvokeHandler(messageType, sendIdentifier, reader))
                 {
@@ -144,7 +155,7 @@ namespace ReadyUp
                     {
                         if (BaseServer.clientConnections.ContainsKey(sendIdentifier))
                         {
-                            NetworkConnection conn = null;
+                            NetworkConnectionToClient conn = null;
                             if (BaseServer.clientConnections.TryGetValue(sendIdentifier, out conn))
                             {
                                 conn.lastMessageTime = DateTime.UtcNow.Ticks;
@@ -155,9 +166,18 @@ namespace ReadyUp
             }
             else
             {
-                Console.WriteLine("[" + identifier.ToString() + "]" + "Invalid Message Received!");
+                Console.WriteLine("Invalid Message Received!");
                 // Invalid message header.
             }
+        }
+
+        public void Disconnect()
+        {
+            socket.Close();
+
+#if DEBUG
+            Console.WriteLine("DEBUG: Socket was Disconnected");
+#endif
         }
     }
 }
