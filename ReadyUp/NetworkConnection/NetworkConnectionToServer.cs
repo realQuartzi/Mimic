@@ -1,7 +1,7 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 
-namespace ReadyUp
+namespace Mimic
 {
     public class NetworkConnectionToServer : NetworkConnection
     {

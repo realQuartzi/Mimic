@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace ReadyUp
+namespace Mimic
 {
     public static class NetworkDiagnostic
     {

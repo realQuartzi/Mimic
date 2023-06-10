@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Net;
 
-namespace ReadyUp
+namespace Mimic
 {
     public static class MessagePacker
     {

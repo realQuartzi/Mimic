@@ -1,7 +1,7 @@
 ﻿using System.Net.Sockets;
 using System.Net;
 
-namespace ReadyUp
+namespace Mimic
 {
     public partial class BaseClient
     {

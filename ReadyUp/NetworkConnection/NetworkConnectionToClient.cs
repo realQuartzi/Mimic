@@ -1,10 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Net;
+﻿using System.Net;
 using System.Net.Sockets;
-using System.Text;
 
-namespace ReadyUp
+namespace Mimic
 {
     public class NetworkConnectionToClient : NetworkConnection
     {

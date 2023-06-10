@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Text;
 
-namespace ReadyUp
+namespace Mimic
 {
     public static class NetworkWriterExtensions
     {

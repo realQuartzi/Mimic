@@ -1,4 +1,4 @@
-﻿using ReadyUp;
+﻿using Mimic;
 
 namespace ReadyUpTest
 {

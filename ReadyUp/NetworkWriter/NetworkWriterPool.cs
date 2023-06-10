@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace ReadyUp
+namespace Mimic
 {
     public static class NetworkWriterPool
     {

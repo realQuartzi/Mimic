@@ -1,7 +1,8 @@
-﻿namespace ReadyUp
+﻿namespace Mimic
 {
     public interface INetworkMessage
     {
+
         void Serialize(NetworkWriter writer);
         void Deserialize(NetworkReader reader);
     }

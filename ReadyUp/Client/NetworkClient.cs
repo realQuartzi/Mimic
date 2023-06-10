@@ -1,9 +1,10 @@
 ﻿using System;
+using System.Drawing;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 
-namespace ReadyUp
+namespace Mimic
 {
     public class NetworkClient : BaseClient
     {
@@ -120,6 +121,9 @@ namespace ReadyUp
             if(clientSocket.Connected && validConnection)
             {
                 byte[] toSend = MessagePacker.Pack(message, clientConnection);
+
+                NetworkDiagnostic.OnSend(message, toSend.Length);
+
                 clientSocket.Send(toSend);
             }
             else
@@ -153,8 +157,8 @@ namespace ReadyUp
         public void RegisterHandler(int messageType, NetworkMessageDelegate handler) => clientConnection.RegisterHandler(messageType, handler);
         public void RegisterHandler<T>(Action<T> handler, bool requiredAuthentication = true) where T : struct, INetworkMessage
         {
-            Action<T, IPEndPoint> internalHaner = (message, endPoint) => handler(message);
-            clientConnection.RegisterHandler<T>(internalHaner, requiredAuthentication);
+            Action<T, IPEndPoint> internalHandler = (message, endPoint) => handler(message);
+            clientConnection.RegisterHandler<T>(internalHandler, requiredAuthentication);
         }
 
         public void UnregisterHandler(int messageType) => clientConnection.UnregisterHandler(messageType);

@@ -4,7 +4,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 
-namespace ReadyUp
+namespace Mimic
 {
     public class NetworkServer : BaseServer
     {
@@ -153,6 +153,9 @@ namespace ReadyUp
             if(clientConnections.TryGetValue(ipEndPoint, out conn))
             {
                 byte[] toSend = MessagePacker.Pack(message);
+
+                NetworkDiagnostic.OnSend(message, toSend.Length);
+
                 conn.socket.BeginSend(toSend, 0, toSend.Length, SocketFlags.None, new AsyncCallback(SendCallback), conn.socket);
             }
         }
@@ -162,13 +165,18 @@ namespace ReadyUp
                 return;
 
             byte[] toSend = MessagePacker.Pack(message);
+            int count = 0;
+
             foreach (KeyValuePair<IPEndPoint, NetworkConnectionToClient> conn in clientConnections)
             {
 #if DEBUG
                 Console.WriteLine("DEBUG: [Server] Sending to: " + conn.Key.ToString());
 #endif
+                count++;
                 conn.Value.socket.BeginSend(toSend, 0, toSend.Length, SocketFlags.None, new AsyncCallback(SendCallback), conn.Value.socket);
             }
+
+            NetworkDiagnostic.OnSend(message, toSend.Length * count);
         }
 
         void SendCallback(IAsyncResult result)

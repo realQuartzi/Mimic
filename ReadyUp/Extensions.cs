@@ -1,8 +1,7 @@
-﻿namespace ReadyUp
+﻿namespace Mimic
 {
     public static class Extensions
     {
-
         // Code from Mirror (Unity #1 Networking Solution) by vis2k and friends :D
         // https://github.com/MirrorNetworking/Mirror
         public static int GetStableHashCode(this string text)

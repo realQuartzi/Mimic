@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 
-namespace ReadyUp
+namespace Mimic
 {
     public class NetworkReader
     {

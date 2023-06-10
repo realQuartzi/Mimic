@@ -1,5 +1,5 @@
 ﻿
-namespace ReadyUp
+namespace Mimic
 {
     public struct DisconnectMessage : INetworkMessage
     {
