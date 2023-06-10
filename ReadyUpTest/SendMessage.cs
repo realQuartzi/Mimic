@@ -1,6 +1,6 @@
 ﻿using Mimic;
 
-namespace ReadyUpTest
+namespace MimicTest
 {
     public struct SendMessage : INetworkMessage
     {
