@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ReadyUp\Mimic.csproj" />
+    <ProjectReference Include="..\Mimic\Mimic.csproj" />
   </ItemGroup>
 
 </Project>
