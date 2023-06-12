@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Drawing;
-using System.Net;
 using System.Net.Sockets;
-using System.Threading.Tasks;
 
 namespace Mimic
 {
@@ -13,52 +10,18 @@ namespace Mimic
             Console.WriteLine("[Client] Starting NetworkClient...");
 
             clientConnection = new NetworkConnectionToServer(new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp), address, port);
-            endPoint = clientConnection.ipEndPoint;
 
             RegisterDefaultHandlers();
-            Connect(endPoint);
+
+            Connect(serverEndPoint);
         }
 
-        public async void Connect(EndPoint endPoint, int maxAttempts = 10, int retryDelay = 1000)
-        {
-            int attempts = 0;
-
-            while (attempts < maxAttempts)
-            {
-                try
-                {
-                    attempts++;
-                    await clientSocket.ConnectAsync(endPoint);
-                    break;
-                }
-                catch (SocketException)
-                {
-#if DEBUG
-                    Console.WriteLine("DEBUG: [Client] Connection attempts: " + attempts.ToString());
-#endif
-                    await Task.Delay(retryDelay);
-                }
-            }
-
-            if(clientSocket.Connected)
-            {
-                Console.WriteLine("[Client] NetworkClient connected to Server!");
-                Console.WriteLine("[Client] NetworkClient listening to: " + clientConnection.address);
-
-                clientSocket.BeginReceiveFrom(globalBuffer, 0, globalBuffer.Length, SocketFlags.None, ref endPoint, new AsyncCallback(ReceiveCallback), clientSocket);
-            }
-            else
-            {
-                Console.WriteLine("[Client] Failed to connect to the server.");
-            }
-        }
-
-        void ReceiveCallback(IAsyncResult result)
+        protected override void ReceiveCallback(IAsyncResult result)
         {
             try
             {
                 Socket socket = (Socket)result.AsyncState;
-                int received = socket.EndReceiveFrom(result, ref endPoint);
+                int received = socket.EndReceive(result);
 
                 byte[] dataBuffer = new byte[received];
                 Array.Copy(globalBuffer, dataBuffer, received);
@@ -66,7 +29,7 @@ namespace Mimic
                 if (dataBuffer.Length > 0)
                 {
                     clientConnection.OnReceivedData(dataBuffer);
-                    clientSocket.BeginReceiveFrom(globalBuffer, 0, globalBuffer.Length, SocketFlags.None, ref endPoint, new AsyncCallback(ReceiveCallback), clientSocket);
+                    clientSocket.BeginReceive(globalBuffer, 0, globalBuffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), clientSocket);
                 }
                 else
                 {
@@ -79,7 +42,6 @@ namespace Mimic
             {
                 Console.WriteLine("[Client] Receive Exception: " + e);
             }
-
         }
 
         void RegisterDefaultHandlers()
@@ -116,7 +78,7 @@ namespace Mimic
             validConnection = false;
         }
 
-        public void Send<T>(T message) where T : INetworkMessage
+        public override void Send<T>(T message)
         {
             if(clientSocket.Connected && validConnection)
             {
@@ -132,40 +94,9 @@ namespace Mimic
             }
         }
 
-        public void Disconnect()
-        {
-            if (!clientSocket.Connected)
-                return;
-
-#if DEBUG
-            Console.WriteLine("DEBUG: [Client] Disconnecting Client");
-#endif
-
-            Send(new DisconnectMessage());
-
-            clientConnection.Disconnect();
-            validConnection = false;
-        }
-
         ~NetworkClient()
         {
             Disconnect();
         }
-
-        #region Register/Unregister Handlers [Getters]
-
-        public void RegisterHandler(int messageType, NetworkMessageDelegate handler) => clientConnection.RegisterHandler(messageType, handler);
-        public void RegisterHandler<T>(Action<T> handler, bool requiredAuthentication = true) where T : struct, INetworkMessage
-        {
-            Action<T, IPEndPoint> internalHandler = (message, endPoint) => handler(message);
-            clientConnection.RegisterHandler<T>(internalHandler, requiredAuthentication);
-        }
-
-        public void UnregisterHandler(int messageType) => clientConnection.UnregisterHandler(messageType);
-        public void UnregisterHandler<T>() where T : INetworkMessage => clientConnection.UnregisterHandler<T>();
-
-        public void ClearHandlers() => clientConnection.ClearHandlers();
-
-        #endregion
     }
 }

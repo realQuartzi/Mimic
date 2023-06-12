@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-using System.Threading;
 
 namespace Mimic
 {
@@ -11,10 +10,14 @@ namespace Mimic
         /// <summary>
         /// Create and Start a new NetworkServer which will listen to the given port
         /// </summary>
+        /// <summary>
+        /// Create and Start a new NetworkServer which will listen to the given port
+        /// </summary>
+        /// <param name="port"></param>
         /// <param name="port"></param>
         public NetworkServer(int port = 4117)
         {
-            Console.WriteLine("[Server] Starting NetworkServer...");
+            Console.WriteLine("[Server] Setting Up NetworkServer...");
             Console.WriteLine("[Server] Set Listening port to: " + port);
 
 #if DEBUG
@@ -26,35 +29,10 @@ namespace Mimic
 
             RegisterDefaultHandlers();
 
-            SetupServer();
+            StartServer();
         }
 
-        // Setup the Server
-        // Associate the socket with a local endpoint
-        // Set the socket in a listening state
-        // Start accepting incoming connection attempts
-        // Start the Timers for Ping and Timeouts
-        void SetupServer()
-        {
-            // Open Listen to all Connections
-            serverSocket.Bind(new IPEndPoint(IPAddress.Any, serverConnection.port));
-            serverSocket.Listen(multiListenCount); // Only allow one Client accept at a time
-
-            Console.WriteLine("[Server] Started listening on port: " + serverConnection.port);
-
-            // Start Accepting new Clients
-            serverSocket.BeginAccept(new AsyncCallback(AcceptConnectionCallback), null);
-
-            pingTimer = new Timer(SendGlobalPing, null, 0, pingRequestTime);
-            Console.WriteLine("[Server] Ping Interval set to: " + pingRequestTime.ToString("0ms"));
-
-            timeoutTimer = new Timer(CheckClientTimeOut, null, 0, clientTimeOut);
-            Console.WriteLine("[Server] Connection Timeout Interval set to: " + clientTimeOut.ToString("0ms"));
-        }
-
-        // Accept the incomming connection
-        // Return a Succesful Connection message
-        void AcceptConnectionCallback(IAsyncResult result)
+        protected override void AcceptConnectionCallback(IAsyncResult result)
         {
             Socket clientSocket = serverSocket.EndAccept(result);
 
@@ -147,7 +125,7 @@ namespace Mimic
             conn.Disconnect();
         }
 
-        public void Send<T>(T message, IPEndPoint ipEndPoint) where T : INetworkMessage
+        public override void Send<T>(T message, IPEndPoint ipEndPoint)
         {
             NetworkConnectionToClient conn = null;
             if(clientConnections.TryGetValue(ipEndPoint, out conn))
@@ -159,7 +137,7 @@ namespace Mimic
                 conn.socket.BeginSend(toSend, 0, toSend.Length, SocketFlags.None, new AsyncCallback(SendCallback), conn.socket);
             }
         }
-        public void SendToAll<T>(T message) where T : INetworkMessage
+        public override void SendToAll<T>(T message)
         {
             if (clientConnections.Count <= 0)
                 return;
@@ -178,56 +156,5 @@ namespace Mimic
 
             NetworkDiagnostic.OnSend(message, toSend.Length * count);
         }
-
-        void SendCallback(IAsyncResult result)
-        {
-            Socket socket = (Socket)result.AsyncState;
-            socket.EndSend(result);
-        }
-
-        void SendGlobalPing(object sender) => SendToAll(new PingMessage());
-
-        void CheckClientTimeOut(object sender)
-        {
-            if (clientConnections.Count <= 0)
-                return;
-
-            foreach (KeyValuePair<IPEndPoint, NetworkConnectionToClient> conn in clientConnections)
-            {
-                // Compare ticks with Milliseconds (Multiply Milliseconds by 10,000 to get ticks compare)
-                if (conn.Value.lastMessageTime + (clientTimeOut * 10000) <= DateTime.UtcNow.Ticks)
-                {
-                    Console.WriteLine($"Connection ID: {conn.Key} Disconnecting... Timeout");
-                    DisconnectConnection(conn.Key);
-                }
-            }
-        }
-
-        void DisconnectConnection(IPEndPoint connectionIP)
-        {
-#if DEBUG
-            Console.WriteLine($"DEBUG: [Server] Connection: {connectionIP.Address.ToString()} Disconnected");
-#endif
-            Send(new DisconnectMessage(), connectionIP);
-
-            if(clientConnections.ContainsKey(connectionIP))
-            {
-                NetworkConnectionToClient conn;
-                clientConnections.Remove(connectionIP, out conn);
-                conn.Disconnect();
-            }
-        }
-
-        #region Register/Unregister Handlers [Getter Extension]
-
-        public void RegisterHandler(int messageType, NetworkMessageDelegate handler) => serverConnection.RegisterHandler(messageType, handler);
-        public void RegisterHandler<T>(Action<T, IPEndPoint> handler, bool requiredAuthentication = true) where T : struct, INetworkMessage => serverConnection.RegisterHandler<T>(handler, requiredAuthentication);
-
-        public void UnregisterHandler(int messageType) => serverConnection.UnregisterHandler(messageType);
-        public void UnregisterHandler<T>() where T : INetworkMessage => serverConnection.UnregisterHandler<T>();
-
-        public void ClearHandlers() => serverConnection.ClearHandlers();
-
-        #endregion
     }
 }
