@@ -6,15 +6,18 @@ namespace MimicTest
 {
     class Program
     {
-        static NetworkServer server;
+        static NetworkKeyServer keyServer;
+        static NetworkKeyClient keyClient;
 
         static int totalBytesIn = 0;
         static int totalBytesOut = 0;
 
         static void Main(string[] args)
         {
-            server = new NetworkServer(4117);
-            server.RegisterHandler<SendMessage>(OnMessageReceived);
+            keyServer = new NetworkKeyServer(4117);
+            keyServer.RegisterHandler<SendMessage>(OnMessageReceived);
+
+            keyClient = new NetworkKeyClient("127.0.0.1");
 
             NetworkDiagnostic.InMessageEvent += InMessage;
             NetworkDiagnostic.OutMessageEvent += OutMessage;
@@ -25,19 +28,17 @@ namespace MimicTest
         static void InMessage(NetworkDiagnostic.MessageInfo info)
         {
             totalBytesIn += info.bytes;
-            Console.WriteLine("[Message In Info] " +  info.bytes  + " | " + totalBytesIn);
         }
 
         static void OutMessage(NetworkDiagnostic.MessageInfo info)
         {
             totalBytesOut += info.bytes;
-            Console.WriteLine("[Message Out Info] " + info.bytes + " | " + totalBytesOut);
         }
 
         static void OnMessageReceived(SendMessage message, IPEndPoint endPoint)
         {
             SendMessage sendMessage = new SendMessage("Hello Client! :D");
-            server.Send(sendMessage, endPoint);
+            keyServer.Send(sendMessage, endPoint);
         }
     }
 }
