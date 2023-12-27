@@ -48,9 +48,9 @@ public class MyClientApplication
   string serverAddress = "127.0.0.1";
   int port = 4117;
   
-  public void CreateServer()
+  public void CreateClient()
   {
-    // Create the server
+    // Create the client
     client = new NetworkClient(serverAddress, port);
     
     // Register the SendMessage NetworkMessage
